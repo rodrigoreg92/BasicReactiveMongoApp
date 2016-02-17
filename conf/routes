@@ -6,10 +6,13 @@
 GET     /                           controllers.Application.index
 
 # Map static resources from the /public folder to the /assets URL path
-POST    /personas/crear             controllers.Application.createNewPerson
+POST      /personas/crear                   controllers.Application.createNewPerson
 
-GET    /personas/buscar             controllers.Application.findAllPersons
+PUT       /personas/actualizar/:apellido    controllers.Application.updatePerson(apellido)
 
-GET    /personas/buscar/:apellido   controllers.Application.findPersonByName(apellido)
+DELETE    /personas/eliminar/:apellido      controllers.Application.deletePerson(apellido)
 
-    
+GET       /personas/buscar                  controllers.Application.findAllPersons
+
+GET       /personas/buscar/:apellido        controllers.Application.findPersonByName(apellido)
+

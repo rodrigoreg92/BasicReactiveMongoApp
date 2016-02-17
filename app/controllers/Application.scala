@@ -8,11 +8,15 @@ import play.modules.reactivemongo.json.collection.JSONCollection
 import play.modules.reactivemongo.{ReactiveMongoApi, MongoController, ReactiveMongoComponents}
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 import play.api.Logger
+import reactivemongo.bson.BSONDocument
 import scala.concurrent.Future
 import reactivemongo.api.Cursor
 import play.api.libs.json._
 import reactivemongo.play.json._
 import play.modules.reactivemongo.json.collection._
+
+import scala.util.{Failure, Success}
+
 
 /**
   * Controlador principal de la aplaicion,
@@ -26,6 +30,7 @@ class Application @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   /**
     * llama a la collection de personas desde mongo,
     * todas las operaciones se realizan con este objeto
+    *
     * @return una jsonCollection de la collection personas
     */
   def collection: JSONCollection = db.collection[JSONCollection]("Personas")
@@ -33,8 +38,8 @@ class Application @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   // ------------------------------------------ //
   // Importa los los modelos con sus convertidores //
   // ------------------------------------------ //
-  import models._
   import models.PersonaConvertidor._
+  import models._
 
   /**
     * Verifica que el servidor esta funcionanco
@@ -56,38 +61,81 @@ class Application @Inject() (val reactiveMongoApi: ReactiveMongoApi)
   }
 
   /**
-    * Retorna la persona del apellido seleccionado
+    * actualiza la info de la persona a partir del apellido seleccionado
+    *
     * @param lastName apellido de la persona
     * @return documento completo de la persona
     */
-  def findPersonByName(lastName: String) = Action.async {
 
-    val cursor: Cursor[Persona] = collection.
-      find(Json.obj("apellido" -> lastName)).
-      cursor[Persona]()
-
-    val futureUsersList: Future[List[Persona]] = cursor.collect[List]()
-
-    futureUsersList.map { persons =>
-      Ok(persons.toString)
-    }
+  def updatePerson(lastName: String) = Action.async(parse.json) { request =>
+    request.body.validate[Persona].map { person =>
+      val selector = BSONDocument("apellido" -> lastName)
+      val modifier = BSONDocument(
+      "$set" -> BSONDocument(
+        "nombre" -> person.nombre,
+        "edad" -> person.edad,
+        "genero" -> person.genero))
+      println(lastName)
+      collection.update(selector ,modifier).map { lastError =>
+        Logger.debug(s"Successfully updated with LastError: $lastError")
+        Ok("Persona Actualizada exitosamnete !")
+      }
+    }.getOrElse(Future.successful(BadRequest("Peticion invalida")))
   }
+
 
   /**
-    * Retorna Todas las personas de la collection
-    * @return todos los documentos completo de la persona
+    * elimina la persona a partir del apellido seleccionado
+    *
+    * @param lastName apellido de la persona
+    * @return documento completo de la persona
     */
-  def findAllPersons = Action.async {
 
-    val cursor: Cursor[Persona] = collection.
-      find(Json.obj()).
-      cursor[Persona]()
+  def deletePerson(lastName: String) = Action.async { request =>
+      val selector = BSONDocument("apellido" -> lastName)
+      collection.remove(selector).map { lastError =>
+        Logger.debug(s"Successfully deleted with LastError: $lastError")
+        Ok("Persona Eliminada exitosamnete !")
+      }
+   }
 
-    val futureUsersList: Future[List[Persona]] = cursor.collect[List]()
 
-    futureUsersList.map { persons =>
-      Ok(persons.toString)
+    /**
+      * Retorna la persona del apellido seleccionado
+      *
+      * @param lastName apellido de la persona
+      * @return documento completo de la persona
+      */
+    def findPersonByName(lastName: String) = Action.async {
+
+      val cursor: Cursor[Persona] = collection.
+        find(Json.obj("apellido" -> lastName)).
+        cursor[Persona]()
+
+      val futureUsersList: Future[List[Persona]] = cursor.collect[List]()
+
+      futureUsersList.map { persons =>
+        Ok(persons.toString)
+      }
+    }
+
+    /**
+      * Retorna Todas las personas de la collection
+      *
+      * @return todos los documentos completo de la persona
+      */
+    def findAllPersons = Action.async {
+
+      val cursor: Cursor[Persona] = collection.
+        find(Json.obj()).
+        cursor[Persona]()
+
+      val futureUsersList: Future[List[Persona]] = cursor.collect[List]()
+
+      futureUsersList.map { persons =>
+        Ok(persons.toString)
+      }
     }
   }
 
-}
+
